@@ -6,8 +6,6 @@ For every Dandiset, this cache counts the entries of the `draft` version's `asse
 
 The count comes from the asset manifest itself rather than from the `assetsSummary.numberOfFiles` field of the much smaller `dandiset.jsonld` metadata, because for `draft` versions that summary field is frequently stale or absent.
 
-The manifest's S3 modification time is published alongside each count, so a consumer can tell how current the count is. It is also what makes the update incremental: a run only re-reads the manifests that have been rewritten since the previous run.
-
 The cache is accumulative: a Dandiset's count is refreshed whenever its draft manifest is readable, and its last known count is retained if the Dandiset later becomes embargoed or otherwise unreadable, rather than being dropped from the map.
 
 Updated daily, since the draft version of a Dandiset can gain or lose assets at any time.
@@ -32,16 +30,16 @@ url = "https://raw.githubusercontent.com/dandi-cache/dandiset-id-to-number-of-as
 response = requests.get(url)
 lines = gzip.decompress(data=response.content).decode("utf-8").splitlines()
 dandiset_id_to_number_of_assets = {
-    dandiset_id: entry["number_of_assets"]
+    dandiset_id: number_of_assets
     for line in lines
-    for dandiset_id, entry in json.loads(line).items()
+    for dandiset_id, number_of_assets in json.loads(line).items()
 }
 ```
 
-Each line is one JSON record mapping a Dandiset ID to its asset count and the S3 modification time of the manifest that count was read from:
+Each line is one JSON record mapping a Dandiset ID to its number of assets:
 
 ```json
-{"<dandiset id>": {"number_of_assets": <count>, "manifest_last_modified": "<timestamp>"}}
+{"<dandiset id>": <number of assets>}
 ```
 
 ### Save to file

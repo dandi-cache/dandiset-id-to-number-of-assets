@@ -1,8 +1,6 @@
 import argparse
-import collections.abc
 import concurrent.futures
 import functools
-import itertools
 import json
 import pathlib
 
@@ -10,7 +8,6 @@ import boto3
 import botocore
 import botocore.config
 import botocore.exceptions
-import ijson
 
 # This cache is first-in-chain: it has no upstream `sourcedata` and instead pulls its inputs
 # directly from the public DANDI archive S3 bucket. Every Dandiset has a `draft` version, whose
@@ -31,19 +28,6 @@ _REGION = "us-east-2"
 _DANDISETS_PREFIX = "dandisets/"
 _DRAFT_MANIFEST_SUFFIX = "/draft/assets.jsonld"
 
-# Field names of a cache entry. The manifest's S3 modification time is published alongside the
-# count: it tells a consumer how current that count is, and it is what lets a run skip the
-# Dandisets whose draft manifest has not been rewritten since the previous run (see `_run`).
-_NUMBER_OF_ASSETS_FIELD = "number_of_assets"
-_LAST_MODIFIED_FIELD = "manifest_last_modified"
-
-# The ijson events that open a top-level element of the manifest array. Asset entries are always
-# JSON objects (`start_map`); the scalar and nested-array events are listed only so that a
-# hypothetical change in the manifest layout is still counted rather than silently ignored.
-_ELEMENT_START_EVENTS = frozenset(
-    {"start_map", "start_array", "null", "boolean", "integer", "double", "number", "string"}
-)
-
 # Testing mode processes only this many Dandisets and writes to its own designated file
 # (`derivatives/testing.jsonl`), leaving the real cache untouched.
 _TESTING_LIMIT = 10
@@ -63,65 +47,71 @@ def _build_s3_client(max_pool_connections: int = 10) -> "botocore.client.BaseCli
     return boto3.client("s3", region_name=_REGION, config=config)
 
 
-def _list_draft_manifests(s3_client: "botocore.client.BaseClient") -> dict[str, tuple[str, str]]:
-    """
-    Map every Dandiset ID to its draft asset manifest's key and S3 modification time.
-
-    A single recursive listing of `dandisets/` covers the whole archive in a handful of requests
-    and carries the modification times with it, so the far more expensive manifest downloads can
-    be restricted to the Dandisets that actually changed. Insertion order is the lexicographic
-    listing order, which the rest of the run relies on for a deterministic testing slice.
-    """
-    draft_manifests: dict[str, tuple[str, str]] = {}
+def _iter_dandiset_ids(s3_client: "botocore.client.BaseClient"):
+    """Yield every Dandiset ID (its folder name) under `dandisets/`, in lexicographic order."""
     paginator = s3_client.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=_BUCKET, Prefix=_DANDISETS_PREFIX):
-        for entry in page.get("Contents", []):
-            key = entry["Key"]
-            if not key.endswith(_DRAFT_MANIFEST_SUFFIX):
-                continue
-            # Key layout: `dandisets/<dandiset_id>/draft/assets.jsonld`.
-            dandiset_id = key.split("/")[1]
-            draft_manifests[dandiset_id] = (key, entry["LastModified"].isoformat())
-    return draft_manifests
+    for page in paginator.paginate(Bucket=_BUCKET, Prefix=_DANDISETS_PREFIX, Delimiter="/"):
+        for entry in page.get("CommonPrefixes", []):
+            yield entry["Prefix"].removeprefix(_DANDISETS_PREFIX).rstrip("/")
 
 
-def _count_assets(
-    s3_client: "botocore.client.BaseClient", dandiset_id_and_key: tuple[str, str]
-) -> tuple[str, int] | None:
-    dandiset_id, key = dandiset_id_and_key
+def _count_assets(s3_client: "botocore.client.BaseClient", dandiset_id: str) -> tuple[str, int] | None:
+    key = f"{_DANDISETS_PREFIX}{dandiset_id}{_DRAFT_MANIFEST_SUFFIX}"
     try:
         response = s3_client.get_object(Bucket=_BUCKET, Key=key)
     except botocore.exceptions.ClientError as error:
         error_code = error.response.get("Error", {}).get("Code", "")
         # Embargoed Dandisets list their `draft` manifest publicly but deny anonymous reads
-        # (AccessDenied); a manifest can also be deleted between listing and fetching
-        # (NoSuchKey). Both are expected upstream states, not pipeline failures, so skip.
+        # (AccessDenied); a Dandiset can also have no draft manifest at all, or have it deleted
+        # between listing and fetching (NoSuchKey). Both are expected upstream states, not
+        # pipeline failures, so skip.
         if error_code in ("AccessDenied", "NoSuchKey"):
             print(f"Skipping inaccessible manifest `{key}` ({error_code}).", flush=True)
             return None
         raise
 
-    # The elements are counted off the response stream instead of being materialized: the
-    # largest draft manifests are well over a hundred megabytes of JSON, which `json.loads`
-    # would expand into gigabytes of Python objects -- once per concurrent worker. Streaming
-    # keeps the memory per worker flat regardless of the manifest's size.
-    with response["Body"] as body_stream:
-        events = ijson.parse(body_stream)
-        first_event = next(events, None)
-        if first_event is None or first_event[1] != "start_array":
-            message = (
-                f"\nThe manifest `{key}` is not a JSON array of assets.\n"
-                "The DANDI archive's manifest layout may have changed.\n"
-            )
-            raise ValueError(message)
-        number_of_assets = sum(1 for prefix, event, _ in events if prefix == "item" and event in _ELEMENT_START_EVENTS)
+    body = response["Body"].read()
+    all_asset_metadata = json.loads(body) if body.strip() else []
 
-    return dandiset_id, number_of_assets
+    # The manifest is a JSON array with one entry per asset, so its length is the asset count.
+    # A manifest that is not an array would otherwise be counted silently and wrongly (a mapping
+    # would yield its number of keys), so a layout change is made to fail loudly instead.
+    if not isinstance(all_asset_metadata, list):
+        message = (
+            f"\nThe manifest `{key}` is not a JSON array of assets.\n"
+            "The DANDI archive's manifest layout may have changed.\n"
+        )
+        raise ValueError(message)
+
+    return dandiset_id, len(all_asset_metadata)
 
 
-def _load_previous_cache(cache_file_path: pathlib.Path) -> dict[str, dict[str, object]]:
+def _collect_counts(s3_client: "botocore.client.BaseClient", max_workers: int, testing: bool) -> dict[str, int]:
+    if testing:
+        # Testing run: count manifests one at a time and stop as soon as `_TESTING_LIMIT`
+        # Dandisets have been counted, so the run is fast and does not enumerate the entire
+        # `dandisets/` prefix.
+        counts: dict[str, int] = {}
+        for dandiset_id in _iter_dandiset_ids(s3_client):
+            if result := _count_assets(s3_client, dandiset_id):
+                counts[result[0]] = result[1]
+            if len(counts) >= _TESTING_LIMIT:
+                break
+        return counts
+
+    # Full run: count every Dandiset's draft manifest concurrently.
+    counts = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        count_assets = functools.partial(_count_assets, s3_client)
+        for result in executor.map(count_assets, _iter_dandiset_ids(s3_client)):
+            if result:
+                counts[result[0]] = result[1]
+    return counts
+
+
+def _load_previous_cache(cache_file_path: pathlib.Path) -> dict[str, int]:
     """Read the previous run's cache back into memory (empty on a bootstrap run)."""
-    previous_cache: dict[str, dict[str, object]] = {}
+    previous_cache: dict[str, int] = {}
     if not cache_file_path.exists():
         return previous_cache
 
@@ -132,46 +122,16 @@ def _load_previous_cache(cache_file_path: pathlib.Path) -> dict[str, dict[str, o
     return previous_cache
 
 
-def _record_counts(
-    dandiset_id_to_number_of_assets: dict[str, dict[str, object]],
-    results: collections.abc.Iterable[tuple[str, int] | None],
-    draft_manifests: dict[str, tuple[str, str]],
-) -> int:
-    """Fold the freshly counted manifests into the accumulated mapping, returning how many landed."""
-    number_of_updates = 0
-    for result in results:
-        if result is None:
-            continue
-        dandiset_id, number_of_assets = result
-        _, last_modified = draft_manifests[dandiset_id]
-        dandiset_id_to_number_of_assets[dandiset_id] = {
-            _NUMBER_OF_ASSETS_FIELD: number_of_assets,
-            _LAST_MODIFIED_FIELD: last_modified,
-        }
-        number_of_updates += 1
-    return number_of_updates
-
-
 def _run(base_directory: pathlib.Path, max_workers: int, testing: bool) -> None:
-    # ijson selects its parsing backend at import time and silently falls back to a pure-Python
-    # one when the compiled `yajl2_c` extension is unavailable, which would turn a run of tens of
-    # seconds into one of many minutes. Log the selected backend so such a regression is visible.
-    print(f"Counting with the ijson `{ijson.backend}` backend.", flush=True)
-
     s3_client = _build_s3_client(max_pool_connections=max_workers)
 
-    draft_manifests = _list_draft_manifests(s3_client)
-    if len(draft_manifests) == 0:
+    fresh_counts = _collect_counts(s3_client, max_workers=max_workers, testing=testing)
+    if len(fresh_counts) == 0:
         message = (
-            f"\nNo draft asset manifests found under `s3://{_BUCKET}/{_DANDISETS_PREFIX}`.\n"
+            f"\nNo draft asset manifests could be read under `s3://{_BUCKET}/{_DANDISETS_PREFIX}`.\n"
             "The DANDI archive bucket may be unreachable or its layout may have changed.\n"
         )
         raise RuntimeError(message)
-
-    if testing:
-        # Testing run: keep only the first few Dandisets, so the run is fast but still exercises
-        # the real processing logic end to end.
-        draft_manifests = dict(itertools.islice(draft_manifests.items(), _TESTING_LIMIT))
 
     derivatives_directory = base_directory / "derivatives"
     derivatives_directory.mkdir(parents=True, exist_ok=True)
@@ -179,55 +139,13 @@ def _run(base_directory: pathlib.Path, max_workers: int, testing: bool) -> None:
     # never touched.
     output_file_path = derivatives_directory / (_TESTING_FILE_NAME if testing else _CACHE_FILE_NAME)
 
-    # The cache is accumulative: the pipeline runs on a clone of the persistent `derivatives`
-    # branch, so the previous run's cache is already present here. Seed the mapping with it, so
-    # a Dandiset's last known count is retained if it later becomes embargoed, is deleted, or is
+    # The cache is accumulative: a Dandiset's count is refreshed whenever its draft manifest is
+    # readable, and its last known count is retained if the Dandiset later becomes embargoed or
     # otherwise unreadable, rather than being dropped from the map.
     dandiset_id_to_number_of_assets = _load_previous_cache(output_file_path)
+    dandiset_id_to_number_of_assets.update(fresh_counts)
 
-    # Only the Dandisets whose draft manifest was rewritten since the previous run are fetched;
-    # the rest keep the entry they already have. A full pass over the archive reads roughly a
-    # gigabyte of manifests, of which the vast majority is unchanged from one day to the next.
-    # A Dandiset whose manifest has never been readable has no recorded modification time and so
-    # is retried on every run, which is what picks an embargoed Dandiset up once it is released;
-    # the retry costs only an immediately denied request. Testing runs always fetch, so that a
-    # smoke test exercises the download and counting path even when its slice is unchanged.
-    to_fetch: list[tuple[str, str]] = []
-    for dandiset_id, (key, last_modified) in draft_manifests.items():
-        previous_entry = dandiset_id_to_number_of_assets.get(dandiset_id, {})
-        if not testing and previous_entry.get(_LAST_MODIFIED_FIELD) == last_modified:
-            continue
-        to_fetch.append((dandiset_id, key))
-    print(
-        f"{len(draft_manifests)} draft manifests listed; {len(draft_manifests) - len(to_fetch)} unchanged since the "
-        f"previous run; fetching {len(to_fetch)}.",
-        flush=True,
-    )
-
-    count_assets = functools.partial(_count_assets, s3_client)
-    if testing:
-        # Testing run: fetch the manifests one at a time, so the smoke test stays as simple as
-        # the slice it covers.
-        number_of_updates = _record_counts(
-            dandiset_id_to_number_of_assets, map(count_assets, to_fetch), draft_manifests
-        )
-    else:
-        # Full run: fetch the changed manifests concurrently.
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            number_of_updates = _record_counts(
-                dandiset_id_to_number_of_assets, executor.map(count_assets, to_fetch), draft_manifests
-            )
-    print(f"Recorded asset counts for {number_of_updates} Dandisets.", flush=True)
-
-    if len(dandiset_id_to_number_of_assets) == 0:
-        message = (
-            f"\nNo asset counts could be read under `s3://{_BUCKET}/{_DANDISETS_PREFIX}`.\n"
-            "Every listed draft manifest was inaccessible.\n"
-        )
-        raise RuntimeError(message)
-
-    # One JSON value per line:
-    # `{"<dandiset_id>": {"number_of_assets": <count>, "manifest_last_modified": "<timestamp>"}}`.
+    # One JSON value per line: `{"<dandiset_id>": <number_of_assets>}`.
     with output_file_path.open(mode="w") as file_stream:
         for dandiset_id in sorted(dandiset_id_to_number_of_assets):
             record = {dandiset_id: dandiset_id_to_number_of_assets[dandiset_id]}

@@ -8,3 +8,6 @@ derivatives/*
 # is this project's lock, so a lockfile is deliberately not kept in the repository.
 envs/.venv/
 envs/uv.lock
+
+# Written by the pre-commit hooks when they are run locally.
+.ruff_cache/

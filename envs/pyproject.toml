@@ -6,5 +6,4 @@ dependencies = [
     "datalad",
     "datalad-container",
     "boto3",
-    "ijson",
 ]
