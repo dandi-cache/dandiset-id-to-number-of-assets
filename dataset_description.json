@@ -1,0 +1,9 @@
+{
+    "Name": "<cache-name>",
+    "BIDSVersion": "1.10.0",
+    "DatasetType": "study",
+    "License": "CC-BY-4.0",
+    "Authors": [
+        "<Author Name>"
+    ]
+}
