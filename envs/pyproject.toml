@@ -1,9 +1,9 @@
 [project]
-name = "<cache-name>"
+name = "dandiset-id-to-number-of-assets"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
     "datalad",
     "datalad-container",
-    # TODO: add this cache's processing dependencies used by code/update.py.
+    "boto3",
 ]

@@ -1,9 +1,9 @@
 {
-    "Name": "<cache-name>",
+    "Name": "dandiset-id-to-number-of-assets",
     "BIDSVersion": "1.10.0",
     "DatasetType": "study",
     "License": "CC-BY-4.0",
     "Authors": [
-        "<Author Name>"
+        "Cody Baker"
     ]
 }

@@ -1,12 +1,16 @@
-# DANDI Cache: `<cache-name>`
+# DANDI Cache: `dandiset-id-to-number-of-assets`
 
-`<A short description of what this cache contains and how it is derived.>`
+Maps each Dandiset ID to the number of assets in its `draft` version.
 
-Updated frequently.
+For every Dandiset, this cache counts the entries of the `draft` version's `assets.jsonld` manifest, read directly from the public DANDI archive S3 bucket -- the `draft` version always reflects a Dandiset's current contents, since changes to it apply immediately, while published versions are frozen snapshots taken at publish time.
+
+The count comes from the asset manifest itself rather than from the `assetsSummary.numberOfFiles` field of the much smaller `dandiset.jsonld` metadata, because for `draft` versions that summary field is frequently stale or absent.
+
+The cache is accumulative: a Dandiset's count is refreshed whenever its draft manifest is readable, and its last known count is retained if the Dandiset later becomes embargoed or otherwise unreadable, rather than being dropped from the map.
+
+Updated daily, since the draft version of a Dandiset can gain or lose assets at any time.
 
 Primarily for use by developers.
-
-> **Note:** Throughout this template, `<cache-name>` refers to the hyphenated repository name (e.g., `my-cache`) and `<cache_name>` refers to the underscored form used for file and variable names (e.g., `my_cache`).
 
 
 
@@ -22,16 +26,26 @@ import json
 
 import requests
 
-url = "https://raw.githubusercontent.com/dandi-cache/<cache-name>/refs/heads/dist/derivatives/<cache_name>.jsonl.gz"
+url = "https://raw.githubusercontent.com/dandi-cache/dandiset-id-to-number-of-assets/refs/heads/dist/derivatives/dandiset_id_to_number_of_assets.jsonl.gz"
 response = requests.get(url)
 lines = gzip.decompress(data=response.content).decode("utf-8").splitlines()
-<cache_name> = [json.loads(line) for line in lines]
+dandiset_id_to_number_of_assets = {
+    dandiset_id: number_of_assets
+    for line in lines
+    for dandiset_id, number_of_assets in json.loads(line).items()
+}
+```
+
+Each line is one JSON record mapping a Dandiset ID to its number of assets:
+
+```json
+{"<dandiset id>": <number of assets>}
 ```
 
 ### Save to file
 
 ```bash
-curl https://raw.githubusercontent.com/dandi-cache/<cache-name>/refs/heads/dist/derivatives/<cache_name>.jsonl.gz -o <cache_name>.jsonl.gz
+curl https://raw.githubusercontent.com/dandi-cache/dandiset-id-to-number-of-assets/refs/heads/dist/derivatives/dandiset_id_to_number_of_assets.jsonl.gz -o dandiset_id_to_number_of_assets.jsonl.gz
 ```
 
 
@@ -41,13 +55,13 @@ curl https://raw.githubusercontent.com/dandi-cache/<cache-name>/refs/heads/dist/
 If you plan on using this cache regularly, clone the `derivatives` branch of this repository:
 
 ```bash
-git clone --branch derivatives https://github.com/dandi-cache/<cache-name>.git
+git clone --branch derivatives https://github.com/dandi-cache/dandiset-id-to-number-of-assets.git
 ```
 
 Or, if you prefer [DataLad](https://www.datalad.org/):
 
 ```bash
-datalad clone https://github.com/dandi-cache/<cache-name>.git --branch derivatives
+datalad clone https://github.com/dandi-cache/dandiset-id-to-number-of-assets.git --branch derivatives
 ```
 
 Then set up a CRON on your system to pull the latest version of the cache at your desired frequency.
@@ -55,37 +69,7 @@ Then set up a CRON on your system to pull the latest version of the cache at you
 For example, through `crontab -e`, add:
 
 ```bash
-0 0 * * * git -C /path/to/<cache-name> pull
+0 0 * * * git -C /path/to/dandiset-id-to-number-of-assets pull
 ```
 
 This will minimize data overhead by only loading the most recent changes.
-
-
-
-## How it works
-
-This cache template demonstrates how generated results of the code branch and records every update with full provenance.
-
-It uses three branches:
-
-- **`main`** holds only the code of the update logic, the runtime container definition, and the CI workflows (including building and distributing the container images).
-- [**`derivatives`**](https://github.com/dandi-cache/cache-template/tree/derivatives) is a persistent [DataLad](https://www.datalad.org/) dataset on its own branch. Each update is recorded there with `datalad containers-run`, so every revision carries full provenance of the exact command, the input subdataset commit, the output diff, and the runtime container image digest.
-- **`dist`** is the lightweight publication artifact consumed by downstream users and preferred for one-time downloads.
-
-The processing runs inside a published container image (`ghcr.io/dandi-cache/<cache-name>:latest`) that holds only the pinned runtime environment.
-
-The orchestration lives in [`code/update_pipeline.sh`](code/update_pipeline.sh); the actual cache logic lives in [`code/update.py`](code/update.py).
-
-The repository is described as a [BIDS study dataset](https://bids-specification.readthedocs.io/en/stable/common-principles.html#study-dataset) via [`dataset_description.json`](dataset_description.json) (`DatasetType: "study"`). Future enhancements may improve the provenance tracking through this mechanism in line with BEP028.
-
-
-
-## Repository setup
-
-After generating a repository from this template, the full setup checklist lives in [`.claude/skills/setup-cache/SKILL.md`](.claude/skills/setup-cache/SKILL.md): replacing the placeholders, choosing an input mode, implementing the cache logic, and removing the template scaffolding (this section and the **How it works** section above included).
-
-### With Claude Code
-
-Open a [Claude Code](https://claude.com/claude-code) session in the freshly generated repository and start from a prompt like:
-
-> Set up this new DANDI cache using the setup-cache skill. The cache should `<describe what this cache computes, where its inputs come from, and how often it should update>`. Open the result as a single setup PR.

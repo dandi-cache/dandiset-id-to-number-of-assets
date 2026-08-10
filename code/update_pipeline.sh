@@ -73,14 +73,15 @@ push_with_retry() {
   retry_with_backoff "git $*" git "$@"
 }
 
-# TODO: pick this cache's input mode — upstream DataLad dataset, local `sourcedata`
-# directory, or first-in-chain network fetch. The three modes, and how these variables
-# drive them, are documented in .claude/skills/setup-cache/SKILL.md (step 2). Leave
-# INPUT_SUBDATASET_URL empty for the two non-subdataset modes; the subdataset handling
-# below is then skipped.
-INPUT_SUBDATASET_URL=""  # e.g. https://github.com/dandi-cache/<input-dataset-name>.git
-INPUT_SUBDATASET_PATH="sourcedata/<input-dataset-name>"
-INPUT_SUBDATASET_BRANCH="derivatives"
+# This cache is first-in-chain: it has no upstream dataset and fetches its own inputs -- the
+# draft asset manifests -- directly from the public DANDI archive S3 bucket at run time. There
+# is therefore no input subdataset to register or pin, so INPUT_SUBDATASET_URL stays empty and
+# all of the subdataset handling below is skipped. The container consequently requires outbound
+# network access; the `--call-fmt` below deliberately leaves the container on the default
+# network rather than isolating it.
+INPUT_SUBDATASET_URL=""
+INPUT_SUBDATASET_PATH=""
+INPUT_SUBDATASET_BRANCH=""
 
 DS="${RUNNER_TEMP:-/tmp}/derivatives-dataset"
 DISTDIR="${RUNNER_TEMP:-/tmp}/dist-publish"
@@ -189,7 +190,7 @@ fi
 datalad containers-run -n pipeline --explicit \
   "${RUN_INPUT_ARGS[@]}" \
   --output derivatives \
-  -m "Update <cache-name> (code @ ${GITHUB_SHA}; image ${DIGEST})" \
+  -m "Update dandiset-id-to-number-of-assets (code @ ${GITHUB_SHA}; image ${DIGEST})" \
   "python /code/update.py --base-directory /tmp ${TESTING_ARG}"
 
 # Publish the full results to the `derivatives` branch.
@@ -201,13 +202,13 @@ push_with_retry -C "${DS}" push "${REPO_URL}" HEAD:derivatives
 # complete run).
 uv run --project "${WORKSPACE}/envs" python "${WORKSPACE}/code/compress.py" --base-directory "${DS}"
 mkdir -p "${DISTDIR}/derivatives"
-if [ -f "${DS}/derivatives/<cache_name>.jsonl.gz" ]; then
-  cp "${DS}/derivatives/<cache_name>.jsonl.gz" "${DISTDIR}/derivatives/"
+if [ -f "${DS}/derivatives/dandiset_id_to_number_of_assets.jsonl.gz" ]; then
+  cp "${DS}/derivatives/dandiset_id_to_number_of_assets.jsonl.gz" "${DISTDIR}/derivatives/"
 fi
 cp "${WORKSPACE}/dataset_description.json" "${DISTDIR}/dataset_description.json"
 git -C "${DISTDIR}" init -q -b dist
 git -C "${DISTDIR}" config user.name "${BOT_NAME}"
 git -C "${DISTDIR}" config user.email "${BOT_EMAIL}"
 git -C "${DISTDIR}" add dataset_description.json derivatives
-git -C "${DISTDIR}" commit -q -m "Publish <cache-name>"
+git -C "${DISTDIR}" commit -q -m "Publish dandiset-id-to-number-of-assets"
 push_with_retry -C "${DISTDIR}" push -f "${REPO_URL}" dist:dist

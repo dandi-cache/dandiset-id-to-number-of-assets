@@ -51,8 +51,8 @@ jobs:
           file: containers/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ghcr.io/dandi-cache/<cache-name>:latest
-            ghcr.io/dandi-cache/<cache-name>:${{ github.sha }}
+            ghcr.io/dandi-cache/dandiset-id-to-number-of-assets:latest
+            ghcr.io/dandi-cache/dandiset-id-to-number-of-assets:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -68,7 +68,7 @@ jobs:
           server_port: 465
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "CI Failure: DANDI Cache: <cache-name> container build"  # TODO: set the cache name
+          subject: "CI Failure: DANDI Cache: dandiset-id-to-number-of-assets container build"
           to: cody.c.baker.phd@gmail.com  # Add more with comma separation (no spaces)
           from: DANDI Cache <dandi-cache@users.noreply.github.com>
           body: "Please check the latest container build of the DANDI Cache: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

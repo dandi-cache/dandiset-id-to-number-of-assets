@@ -6,7 +6,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # TODO: set the desired schedule
+    - cron: "0 0 * * *"  # Daily: the draft version of a Dandiset can gain or lose assets at any time.
   workflow_dispatch:
     inputs:
       testing:
@@ -87,7 +87,7 @@ jobs:
           # only "true" when testing mode is explicitly selected on workflow_dispatch.
           TESTING: ${{ github.event.inputs.testing }}
           GITHUB_SHA: ${{ github.sha }}
-          IMAGE: ghcr.io/dandi-cache/<cache-name>:latest  # TODO: set the cache name
+          IMAGE: ghcr.io/dandi-cache/dandiset-id-to-number-of-assets:latest
         run: bash code/update_pipeline.sh
 
   NotifyOnFailure:
@@ -102,7 +102,7 @@ jobs:
           server_port: 465
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "CI Failure: DANDI Cache: <cache-name>"  # TODO: set the cache name
+          subject: "CI Failure: DANDI Cache: dandiset-id-to-number-of-assets"
           to: cody.c.baker.phd@gmail.com  # Add more with comma separation (no spaces)
           from: DANDI Cache <dandi-cache@users.noreply.github.com>
           body: "Please check the latest run of the DANDI Cache update: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

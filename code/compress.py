@@ -19,7 +19,9 @@ def _compress(file_path: pathlib.Path, /) -> None:
 if __name__ == "__main__":
     default_base_directory = pathlib.Path(__file__).parent.parent
 
-    parser = argparse.ArgumentParser(description="Compress the <cache-name> JSON Lines derivatives for distribution.")
+    parser = argparse.ArgumentParser(
+        description="Compress the dandiset-id-to-number-of-assets JSON Lines derivatives for distribution."
+    )
     parser.add_argument(
         "--base-directory",
         type=pathlib.Path,

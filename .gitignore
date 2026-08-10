@@ -3,3 +3,11 @@ __pycache__/
 sourcedata/*
 derivatives/*
 .DS_Store
+
+# Debugging locally with `uv run --project envs` writes these; the container image (by digest)
+# is this project's lock, so a lockfile is deliberately not kept in the repository.
+envs/.venv/
+envs/uv.lock
+
+# Written by the pre-commit hooks when they are run locally.
+.ruff_cache/
