@@ -1,0 +1,17 @@
+# The complete declarative description of this cache.
+#
+# One file, read by both the shared orchestration and this cache's own update code, so the two
+# cannot disagree. It replaces what used to be spread across `code/update_pipeline.sh`, the update
+# workflow, `dataset_description.json`, and the constants at the top of `code/update.py`.
+
+[cache]
+name = "dandiset-id-to-number-of-assets"
+
+# No `[[inputs]]`: this cache is first in its chain. It reads the DANDI archive's own draft asset
+# manifests over S3 rather than another cache's output, so there is no input subdataset to pin.
+
+# The published branches describe this repository as a BIDS study dataset, through a
+# `dataset_description.json` with `DatasetType: "study"`. The pipeline renders that file from this
+# section at the start of every run, so the repository no longer carries it by hand.
+[description]
+authors = ["Cody Baker"]

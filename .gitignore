@@ -11,3 +11,4 @@ envs/uv.lock
 
 # Written by the pre-commit hooks when they are run locally.
 .ruff_cache/
+logs/*
