@@ -38,7 +38,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: dandi-cache/dandi-cache-action/build-and-publish-image@v2
+      - uses: dandi-cache/dandi-cache-action/build-and-publish-image@v3
         with:
           token: ${{ secrets._GITHUB_API_KEY }}
           mail-username: ${{ secrets.MAIL_USERNAME }}
