@@ -1,9 +1,18 @@
+# This cache's own processing dependencies, in one place: the container installs them, and
+# `uv run --project envs` recreates the same set locally for debugging.
+#
+# There are none. Reading the archive's manifests over unsigned S3 is what the `:latest` base image is for, and it carries boto3 and the DANDI API.
+#
+# `datalad` and `datalad-container` used to be here too. They never ran inside the image; the
+# shared pipeline installs them on the runner from its own pinned requirements.
+
 [project]
 name = "dandiset-id-to-number-of-assets"
 version = "0.1.0"
 requires-python = ">=3.13"
-dependencies = [
-    "datalad",
-    "datalad-container",
-    "boto3",
-]
+dependencies = []
+
+[project.optional-dependencies]
+# Only for running outside the container: inside it, the library comes from the base image, and
+# installing it again from git would silently replace the version that image was built with.
+local = ["dandi-cache-utils[all] @ git+https://github.com/dandi-cache/dandi-cache-utils.git"]
