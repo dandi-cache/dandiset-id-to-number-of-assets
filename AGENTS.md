@@ -11,6 +11,26 @@ Never write an orchestration script, a compression step, a `dataset_description.
 All of it exists already.
 If the shared pipeline is wrong or missing something, fix it in `dandi-cache-utils` so every cache gets the fix.
 
+## When a cache fails, fix it where it came from
+
+A cache that breaks at run time is usually not a bug in that cache.
+Triage before patching, because a fix in the wrong place leaves every other cache to hit the same problem again.
+
+- A defect in the shared pipeline goes to `dandi-cache-utils`, as above.
+- A defect in the CI that runs it goes to `dandi-cache-action`.
+- A defect in the *guidance* goes to [`cache-template`](https://github.com/dandi-cache/cache-template).
+  This file is a copy of the template's, so an edit here reaches this cache alone.
+  Open a pull request against the template as well, so the correction reaches every other cache and the next one to be generated.
+- Only what is genuinely specific to this cache's operation belongs in `code/update.py` or `cache.toml`.
+
+Guidance is at fault when a step was followed as written and still produced a broken cache.
+The same goes for a failure mode the instructions never mention, an instruction that reads as optional but is not, and an ordering that only works one way without saying so.
+A one-off mistake by whoever ran the setup is not a guidance defect, and neither is an upstream outage.
+
+Write the correction as the instruction the next reader follows, not as a story about this incident.
+Name the rule, and give just enough of the failure to show why the rule exists.
+The template's [`dandi-s3-network-inputs` skill](https://github.com/dandi-cache/cache-template/blob/main/.claude/skills/dandi-s3-network-inputs/SKILL.md) is what that looks like after the fact, a short set of rules distilled from two pull requests of debugging.
+
 ## Commits and PRs
 
 - Always run `pre-commit` before committing and pushing changes.
