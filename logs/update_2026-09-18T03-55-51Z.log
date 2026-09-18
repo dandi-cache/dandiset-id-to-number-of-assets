@@ -1,0 +1,3 @@
+2026-09-18T03:55:51Z INFO Logging to /tmp/logs/update_2026-09-18T03-55-51Z.log.
+2026-09-18T03:55:51Z INFO Update dandiset-id-to-number-of-assets (base directory /tmp).
+2026-09-18T03:56:00Z INFO Wrote 956 records to /tmp/derivatives/dandiset_id_to_number_of_assets.jsonl in 0.2 min (peak memory 836 MiB).
