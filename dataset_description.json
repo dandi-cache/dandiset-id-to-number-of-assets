@@ -1,0 +1,23 @@
+{
+    "Name": "dandiset-id-to-number-of-assets",
+    "BIDSVersion": "1.11.1",
+    "DatasetType": "study",
+    "License": "CC-BY-4.0",
+    "Authors": [
+        "Cody Baker"
+    ],
+    "ReferencesAndLinks": [
+        "https://github.com/dandi-cache/dandiset-id-to-number-of-assets"
+    ],
+    "GeneratedBy": [
+        {
+            "Name": "dandi-cache-utils",
+            "Version": "0.1.8",
+            "CodeURL": "https://github.com/dandi-cache/dandi-cache-utils",
+            "Container": {
+                "ContainerType": "docker",
+                "ContainerTag": "ghcr.io/dandi-cache/dandiset-id-to-number-of-assets"
+            }
+        }
+    ]
+}
