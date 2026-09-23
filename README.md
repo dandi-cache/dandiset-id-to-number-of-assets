@@ -23,12 +23,11 @@ If you only plan to use this cache infrequently or from disparate locations, you
 ```python
 import gzip
 import json
-
-import requests
+import urllib.request
 
 url = "https://raw.githubusercontent.com/dandi-cache/dandiset-id-to-number-of-assets/refs/heads/dist/derivatives/dandiset_id_to_number_of_assets.jsonl.gz"
-response = requests.get(url)
-lines = gzip.decompress(data=response.content).decode("utf-8").splitlines()
+with urllib.request.urlopen(url) as response:
+    lines = gzip.decompress(data=response.read()).decode("utf-8").splitlines()
 dandiset_id_to_number_of_assets = {
     dandiset_id: number_of_assets
     for line in lines
