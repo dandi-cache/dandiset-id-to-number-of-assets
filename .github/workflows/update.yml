@@ -14,12 +14,12 @@ on:
   workflow_dispatch:
     inputs:
       testing:
-        description: "Testing mode: process a handful of items into testing_-prefixed files, leaving the real cache untouched."
+        description: "Testing mode: process the cache.toml testing_limit of items into testing_-prefixed files, leaving the real cache untouched."
         required: false
         type: boolean
         default: false
       limit:
-        description: "Cap on the newly valid content IDs processed this run. Leave empty for the default of 500."
+        description: "Cap on the Dandiset manifests read this run, overriding the limit in cache.toml. The run still publishes the complete cache; the rest waits for the next one."
         required: false
         type: string
         default: ""
