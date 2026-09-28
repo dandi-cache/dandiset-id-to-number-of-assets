@@ -11,14 +11,23 @@ permissions:
 on:
   push:
     branches: [ main ]
+    # `code/`, `cache.toml` and the committed description are not baked into the image, but the
+    # build is where they are checked against the library it carries, so a change to any of them
+    # rebuilds. Without them a script change reached the next scheduled update unchecked.
     paths:
       - "envs/pyproject.toml"
       - "containers/**"
+      - "code/**"
+      - "cache.toml"
+      - "dataset_description.json"
       - ".github/workflows/build_and_upload_docker_image.yml"
   pull_request:
     paths:
       - "envs/pyproject.toml"
       - "containers/**"
+      - "code/**"
+      - "cache.toml"
+      - "dataset_description.json"
       - ".github/workflows/build_and_upload_docker_image.yml"
   repository_dispatch:
     # Sent by dandi-cache-utils when it publishes a new base image. This image is built `FROM` that
@@ -38,7 +47,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: dandi-cache/dandi-cache-action/build-and-publish-image@v3
+      - uses: dandi-cache/dandi-cache-action/build-and-publish-image@v4
         with:
           token: ${{ secrets._GITHUB_API_KEY }}
           mail-username: ${{ secrets.MAIL_USERNAME }}
