@@ -7,8 +7,32 @@
 [cache]
 name = "dandiset-id-to-number-of-assets"
 
+# Two files, written together by every run:
+#
+#   dandiset_id_to_number_of_assets   the cache itself, one asset count per Dandiset
+#   dandiset_id_to_number_of_assets_checked_atwhen each Dandiset was last attempted, read or
+#                                     not, which is what orders a bounded run's batch
+#
+# Declaring them here is what publishes both to `dist` and what keeps a `testing_` artifact from
+# reaching consumers.
+outputs = [
+    "dandiset_id_to_number_of_assets.jsonl",
+    "dandiset_id_to_number_of_assets_checked_at.jsonl",
+]
+
 # No `[[inputs]]`: this cache is first in its chain. It reads the DANDI archive's own draft asset
 # manifests over S3 rather than another cache's output, so there is no input subdataset to pin.
+
+# One manifest read per Dandiset is the whole of this cache's work, and this is how many of them
+# a run does. The archive currently holds 1,240 Dandisets, so it does not bind -- a run reads
+# every one of them -- and is here so an archive several times larger is spread across crons
+# rather than outgrowing one.
+# A bounded run still publishes the complete cache, and the `_checked_at` side output is what
+# makes it cycle through every Dandiset rather than re-reading the same prefix.
+[operations.update]
+limit = 2000
+# Ten Dandisets exercise the listing, the concurrent reads and the merge, and cost a second.
+testing_limit = 10
 
 # The published branches describe this repository as a BIDS study dataset, through a
 # `dataset_description.json` with `DatasetType: "study"`. The pipeline renders that file from this

@@ -12,6 +12,10 @@ Updated daily, since the draft version of a Dandiset can gain or lose assets at 
 
 Primarily for use by developers.
 
+A second file, `derivatives/dandiset_id_to_number_of_assets_checked_at.jsonl`, records the UTC date each Dandiset's manifest was last read, whether or not the read succeeded.
+It is bookkeeping rather than data: it is what lets a run that cannot reach every Dandiset read the ones it has gone longest without, instead of the same prefix of the listing each time.
+Every Dandiset is read on every run at the archive's present size, so in practice the dates move together.
+
 
 
 ## One-time use
