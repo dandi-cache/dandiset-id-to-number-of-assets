@@ -12,7 +12,7 @@
     "GeneratedBy": [
         {
             "Name": "dandi-cache-utils",
-            "Version": "0.1.8",
+            "Version": "0.2.0",
             "CodeURL": "https://github.com/dandi-cache/dandi-cache-utils",
             "Container": {
                 "ContainerType": "docker",
