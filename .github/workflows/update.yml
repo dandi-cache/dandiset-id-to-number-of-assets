@@ -10,7 +10,10 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # Daily: the draft version of a Dandiset can gain or lose assets at any time.
+    # GitHub delays and drops scheduled runs that fall on the hour, so this one runs at a minute of
+    # its own. Every six hours: a draft can gain or lose assets at any time, and a run takes
+    # seconds.
+    - cron: "13 */6 * * *"
   workflow_dispatch:
     inputs:
       testing:

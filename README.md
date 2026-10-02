@@ -8,7 +8,7 @@ The count comes from the asset manifest itself rather than from the `assetsSumma
 
 The cache is accumulative: a Dandiset's count is refreshed whenever its draft manifest is readable, and its last known count is retained if the Dandiset later becomes embargoed or otherwise unreadable, rather than being dropped from the map.
 
-Updated daily, since the draft version of a Dandiset can gain or lose assets at any time.
+Updated every six hours, since the draft version of a Dandiset can gain or lose assets at any time.
 
 Primarily for use by developers.
 
