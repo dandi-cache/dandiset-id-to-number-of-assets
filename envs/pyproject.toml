@@ -8,6 +8,8 @@
 
 [project]
 name = "dandiset-id-to-number-of-assets"
+# A placeholder, not a release number, and never bumped. A cache is versioned by the code commit
+# and image digest that every run records in its commit on `derivatives`.
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = []
