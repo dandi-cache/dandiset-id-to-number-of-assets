@@ -27,31 +27,16 @@ It can be read with the standard library alone, or opened remotely with any Zarr
 
 ### Python API (recommended)
 
-Fetch `stream/zarr.json` for the array's length and chunk size, then each chunk in order:
+Each chunk file is gzip-compressed [JSON Lines](https://jsonlines.org/), so read them in order as you would any JSONL files; `stream/zarr.json` says how many there are:
 
 ```python
-import gzip
-import json
-import math
-import urllib.request
+import gzip, json, math, urllib.request
 
 store = "https://raw.githubusercontent.com/dandi-cache/dandiset-id-to-number-of-assets/refs/heads/dist/derivatives/dandiset_id_to_number_of_assets.zarr"
-
-
-def fetch(path):
-    with urllib.request.urlopen(f"{store}/{path}") as response:
-        return response.read()
-
-
+def fetch(path): return urllib.request.urlopen(f"{store}/{path}").read()
 array = json.loads(fetch("stream/zarr.json"))
-length = array["shape"][0]
-chunk_bytes = array["chunk_grid"]["configuration"]["chunk_shape"][0]
-
-dandiset_id_to_number_of_assets = {}
-for index in range(math.ceil(length / chunk_bytes)):
-    for line in gzip.decompress(fetch(f"stream/c/{index}")).decode("utf-8").splitlines():
-        if line.strip():
-            dandiset_id_to_number_of_assets.update(json.loads(line))
+chunks = math.ceil(array["shape"][0] / array["chunk_grid"]["configuration"]["chunk_shape"][0])
+dandiset_id_to_number_of_assets = {key: value for index in range(chunks) for line in gzip.decompress(fetch(f"stream/c/{index}")).decode().splitlines() if line for key, value in json.loads(line).items()}
 ```
 
 Each line is one JSON record mapping a Dandiset ID to its number of assets:
@@ -128,13 +113,8 @@ This will minimize data overhead by only loading the most recent changes.
 Each output is a store on the `derivatives` branch, where it is the whole log, uncompacted, and plain text:
 
 ```python
-import json
-import pathlib
+import json, pathlib
 
-chunks = pathlib.Path("dandiset-id-to-number-of-assets/derivatives/dandiset_id_to_number_of_assets.zarr/stream/c")
-dandiset_id_to_number_of_assets = {}
-for chunk in sorted(chunks.iterdir(), key=lambda path: int(path.name)):
-    for line in chunk.read_text().splitlines():
-        if line.strip():
-            dandiset_id_to_number_of_assets.update(json.loads(line))  # A later line for a key replaces an earlier one.
+chunks = sorted(pathlib.Path("dandiset-id-to-number-of-assets/derivatives/dandiset_id_to_number_of_assets.zarr/stream/c").iterdir(), key=lambda path: int(path.name))
+dandiset_id_to_number_of_assets = {key: value for chunk in chunks for line in chunk.read_text().splitlines() if line for key, value in json.loads(line).items()}
 ```
