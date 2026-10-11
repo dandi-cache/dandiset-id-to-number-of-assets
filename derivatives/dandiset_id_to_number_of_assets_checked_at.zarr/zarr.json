@@ -1,0 +1,46 @@
+{
+  "attributes": {
+    "dandi_cache": {
+      "layout": "jsonl-log",
+      "description": "The array `stream` holds JSON Lines text, one record per line, in chunks that each end on a whole record and are padded with newlines. Concatenate the chunks in order and skip blank lines to read it as JSONL. Where a key appears more than once, the last line is the current entry."
+    }
+  },
+  "zarr_format": 3,
+  "consolidated_metadata": {
+    "kind": "inline",
+    "must_understand": false,
+    "metadata": {
+      "stream": {
+        "shape": [
+          31300
+        ],
+        "data_type": "uint8",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              80000000
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 10,
+        "codecs": [
+          {
+            "name": "bytes"
+          }
+        ],
+        "attributes": {},
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      }
+    }
+  },
+  "node_type": "group"
+}
