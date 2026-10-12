@@ -1,0 +1,4 @@
+2026-10-12T15:22:34Z INFO Logging to /tmp/logs/update_2026-10-12T15-22-34Z.log.
+2026-10-12T15:22:34Z INFO Update dandiset-id-to-number-of-assets (base directory /tmp).
+2026-10-12T15:22:36Z INFO Reading 1252 of 1252 Dandisets this run.
+2026-10-12T15:22:49Z INFO Wrote 975 records to /tmp/derivatives/dandiset_id_to_number_of_assets.zarr in 0.2 min (peak memory 1969 MiB).
