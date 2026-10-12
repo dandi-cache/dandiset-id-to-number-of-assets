@@ -22,7 +22,6 @@ Every Dandiset is read on every run at the archive's present size, so in practic
 
 `dist` publishes each output as a [Zarr](https://zarr.dev/) store: the cache itself is `derivatives/dandiset_id_to_number_of_assets.zarr/`, with the cache's other outputs beside it as stores of the same kind (`derivatives/dandiset_id_to_number_of_assets_checked_at.zarr/`).
 A store is one array of [JSON Lines](https://jsonlines.org/) text cut into chunk files, each holding whole lines and gzip-compressed.
-Where a key appears more than once, the last line is its current entry, and the published copy has no repeats.
 It can be read with the standard library alone, or opened remotely with any Zarr library.
 
 ### Python API (recommended)
