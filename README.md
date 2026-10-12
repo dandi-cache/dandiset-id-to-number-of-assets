@@ -42,9 +42,6 @@ Each line is one JSON record mapping a Dandiset ID to its number of assets:
 {"<dandiset id>": <number of assets>}
 ```
 
-An entry is not filed under its key: the chunks hold the entries in the order they were recorded, so looking up one means reading through them.
-To look up many, read it once as above, or clone the `derivatives` branch.
-
 ### Remote Zarr store
 
 Anything that opens Zarr can open the store over HTTP, reading only the chunks it needs.
