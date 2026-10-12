@@ -81,6 +81,10 @@ def main() -> None:
         # Every Dandiset this run attempted, not only the ones that answered: an unreadable one is
         # still done for now, and stamping it is what lets the batch move past it next run.
         checked_at.update(dict.fromkeys(batch, today))
+        # How much of the archive this cache has covered, for the cache dashboard: every Dandiset
+        # attempted at least once, out of every Dandiset in the archive. An embargoed or empty one
+        # counts once attempted, as there is nothing more to read from it.
+        dandi_cache.log_progress(sum(1 for dandiset_id in dandiset_ids if dandiset_id in checked_at), len(dandiset_ids))
         return [{dandiset_id: records[dandiset_id]} for dandiset_id in sorted(records)]
 
     dandi_cache.run_full_rebuild(dataset, build=build)
