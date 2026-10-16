@@ -1,0 +1,5 @@
+2026-10-16T21:07:21Z INFO Logging to /tmp/logs/update_2026-10-16T21-07-21Z.log.
+2026-10-16T21:07:21Z INFO Update dandiset-id-to-number-of-assets (base directory /tmp).
+2026-10-16T21:07:22Z INFO Reading 1258 of 1258 Dandisets this run.
+2026-10-16T21:07:35Z INFO Progress: 1,258 of 1,258 candidates recorded (100.0%).
+2026-10-16T21:07:36Z INFO Wrote 984 records to /tmp/derivatives/dandiset_id_to_number_of_assets.zarr in 0.2 min (peak memory 1934 MiB).
